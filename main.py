@@ -1,54 +1,47 @@
-import typer
-from parser import parse_hh
-from db import Base, engine, SessionLocal
-from models import Job
-from rich.table import Table
-from rich.console import Console
+import argparse
+from hh_api import fetch_vacancies
+from letter_generator import generate_letter
 
-app = typer.Typer()
-console = Console()
 
-@app.command()
-def init():
-    """Создаёт таблицы в БД"""
-    Base.metadata.create_all(bind=engine)
-    console.print("[green]✔ Таблицы созданы.[/green]")
+def print_vacancies(vacancies):
+    for i, vac in enumerate(vacancies, 1):
+        print(f"\n[{i}] {vac.name}")
+        print(f"Компания: {vac.employer.name} — Город: {vac.area.name}")
+        if vac.salary_from or vac.salary_to:
+            salary_str = f"{vac.salary_from or ''} - {vac.salary_to or ''} {vac.currency or ''}"
+            print(f"Зарплата: {salary_str}")
+        print(f"Требования: {vac.snippet_requirement}")
+        print(f"Обязанности: {vac.snippet_responsibility}")
+        print(f"Ссылка: {vac.url}")
+        print("-" * 40)
 
-@app.command()
-def run(keyword: str = "python", pages: int = 1):
-    """Запускает парсинг hh.ru по ключевому слову"""
-    parse_hh(keyword=keyword, pages=pages)
 
-@app.command()
-def list():
-    """Выводит все вакансии"""
-    db = SessionLocal()
-    jobs = db.query(Job).all()
-    table = Table(title="Jobs")
-    table.add_column("ID", style="cyan")
-    table.add_column("Title")
-    table.add_column("Company")
-    table.add_column("Location")
-    table.add_column("Viewed", justify="center") # Добавляем колонку Viewed
+def main():
+    parser = argparse.ArgumentParser(description="Поиск вакансий через hh.ru")
+    parser.add_argument("--keywords", required=True, help="Ключевые слова (например: Python developer)")
+    parser.add_argument("--area", default="1", help="ID региона (по умолчанию Москва — 1)")
+    parser.add_argument("--limit", type=int, default=10, help="Количество вакансий")
 
-    for job in jobs:
-        table.add_row(str(job.id), job.title, job.company, job.location, "✅" if job.is_viewed else "❌") # Отображаем статус Viewed
+    args = parser.parse_args()
 
-    console.print(table)
-    db.close()
+    print(f"🔍 Поиск вакансий по ключевым словам: {args.keywords}")
+    vacancies = fetch_vacancies(args.keywords, area=args.area, per_page=args.limit)
+    print_vacancies(vacancies)
 
-@app.command()
-def view(job_id: int):
-    """Отмечает вакансию как просмотренную"""
-    session = SessionLocal()
-    job = session.query(Job).get(job_id)
-    if job:
-        job.is_viewed = True
-        session.commit()
-        console.print(f"[green]✔ Вакансия {job_id} отмечена как просмотренная.[/green]")
-    else:
-        console.print(f"[red]❌ Вакансия с ID {job_id} не найдена.[/red]")
-    session.close()
+    if vacancies:
+        choice = input("\nВыбери номер вакансии, для которой сгенерировать сопроводительное письмо (или Enter для выхода): ")
+        if choice.isdigit():
+            index = int(choice) - 1
+            if 0 <= index < len(vacancies):
+                letter = generate_letter(vacancies[index])
+                print("\n📄 Сопроводительное письмо:\n")
+                print(letter)
+            else:
+                print("❌ Неверный выбор.")
+        else:
+            print("Завершено.")
+
 
 if __name__ == "__main__":
-    app()
+    main()
+
