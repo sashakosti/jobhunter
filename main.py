@@ -1,6 +1,6 @@
 import argparse
-from hh_api import fetch_vacancies
-from letter_generator import generate_letter
+from src.hh_api import fetch_vacancies
+from src.letter_generator import generate_letter
 
 
 def print_vacancies(vacancies):
@@ -13,7 +13,7 @@ def print_vacancies(vacancies):
         print(f"Требования: {vac.snippet_requirement}")
         print(f"Обязанности: {vac.snippet_responsibility}")
         print(f"Ссылка: {vac.url}")
-        print("-" * 40)
+        print("-" * 50)
 
 
 def main():

@@ -1,7 +1,6 @@
 import requests
 from typing import List
-from models import Vacancy
-
+from src.models import Vacancy
 
 BASE_URL = "https://api.hh.ru/vacancies"
 
